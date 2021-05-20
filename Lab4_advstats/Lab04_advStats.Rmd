@@ -1,0 +1,258 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+Name: Mayuri Patel
+
+Email: mpate131@uncc.edu
+
+title: "Lab4_AdvStats"
+
+
+(1A)  Plot the prior graph for a situation for a coin where the prior belief for p(head) is represented by the following R code :
+
+		dexp(x, rate =5) / 0.9932621
+
+    for values of 0 <= x <= 1 and 0 otherwise.  (We choose the denominator to make the Integral between 0 and 1 sum to 1).
+    
+```{r}
+#Taking the seq from 0 to 1 
+x <- seq(0,1,0.01)
+
+#The value for this exp R code is below:
+dexp(x, rate =5) / 0.9932621 
+```
+
+```{r}
+#plotting those values with dexp.
+plot(x, dexp(x, rate =5) / 0.9932621,main="prior graph for a coin", xlab="p(head)" )
+
+```
+
+
+(1B)  Calculate the posterior graph with both the Metropolis algorithm and grid approximation for a case with 14 heads and 10 tails (where x = prob(head)) . Show the two methods roughly agree.  Compare these to a plot with a posterior for new data of 14 heads and 10 tails with a prior with beta(40,40).
+
+(So for the observation of 14 heads and 10 tails you will end up with a graph with three plots superimposed: (i) the Metropolis algorithm with an exp prior, (ii) grid approximation with an exp prior and (iii) exact analytical solution from a beta(40,40) prior make the plots different colors so you can visualize them…)
+
+
+- Metropolis algorithm:
+
+```{r}
+#piold value is set as 0.5
+piOld <- 0.5
+
+#taking number of iterations for this algorithm to run
+numIterations <- 500000
+#empty variable to save the values of posteriors
+posteriorDist <- vector()
+
+#for loop the iteration
+for( i in 1:numIterations )
+{
+	# our prior with 39 heads and 39 tails
+	# our new data with 14 heads and 10 tails
+  #we are usinf dexp here for prior 
+	pOld <- dexp(x, rate =5) / 0.9932621  * dbinom( 14, 24, piOld )
+	
+	piNew <- piOld + rnorm(1, 0, sd =0.01); #selecting the standard deviation
+	#Checking for the pi new values 
+	if( piNew > 1) 
+		piNew = 1;
+	
+	if( piNew < 0 ) 
+		piNew =0;
+		
+	pNew <- dexp(x, rate =5) / 0.9932621 * dbinom( 14, 24, piNew )
+	#calculating the ratio
+	ratio <- pNew / pOld
+	
+	if( ratio > 1 || ratio >= runif(1) ) 
+		piOld = piNew;
+	
+	#storing the pi old values in posterior
+	posteriorDist[i] = piOld;	
+	
+}
+myHist <- hist(posteriorDist,breaks=200, plot=FALSE)
+
+```
+
+
+
+- Grid approximation:
+
+```{r}
+#taking number of breaks 
+numBreaks=200;
+posteriorDist_grid <- vector(length=numBreaks) # setting an empty variable to store posterior values
+xVals <- seq(0,1,1/numBreaks);
+
+#setting the sum to 0
+i <- 1;
+sum <- 0;
+
+for( x in xVals )
+{
+	# our prior with 39 heads and 39 tails
+	# our new data with 14 heads and 10 tails
+  #we are using prior as dexp
+	posteriorDist_grid[i] <- dexp(x, rate =5) / 0.9932621 * dbinom( 14, 24, x)
+	sum = sum + posteriorDist_grid[i]; # sum the values of posteriors 
+	i <- i + 1;	
+}
+
+```
+
+- The below plot shows that both the metropolis and grid methods roughly agrees. The x-axis label is prob(head) from 0 to 1. So, for clear visualization of the plot I set the limits of x and y axes.
+
+```{r}
+plot( myHist$mids, myHist$counts/length(posteriorDist),xlim =c(0.2,0.9),ylim=c(0,0.05),col='blue',main= "Posterior Curves", xlab="prob(head)", ylab="posterior") #the midpoints of cells #the number
+lines(xVals,posteriorDist_grid/sum,col="red",xlim =c(0.2,0.9),ylim=c(0,0.05))
+legend("topleft", legend=c("Metropolis", "Grid"),col=c("blue", "red"), lty=1:2, cex=0.8)
+```
+
+- Exact analytical solution from a beta(40,40) prior:
+
+```{r}
+
+#taking number of breaks 
+numBreaks1=200;
+post_Dist <- vector(length=numBreaks) # setting an empty variable to store posterior values
+xValues <- seq(0,1,1/numBreaks1);
+
+i <- 1;
+sum1 <- 0; #setting the sum to 0
+
+for( x in xValues )
+{
+	# our prior with 39 heads and 39 tails
+	# our new data with 14 heads and 10 tails
+  #we are using the dbeta for exact analytical solution for prior
+	post_Dist[i] <- dbeta( x, 40,40 ) * dbinom( 14, 24, x)
+	sum1 = sum1 + post_Dist[i]; # sum the values of posteriors
+	i <- i + 1;	
+}
+  
+```
+
+- The observation of 14 heads and 10 tails end up with a graph with three plots superimposed:
+
+```{r}
+plot( myHist$mids, myHist$counts/length(posteriorDist),xlim =c(0.2,0.9),ylim=c(0,0.05),col='blue',main= "Posterior Curves", xlab="prob(head)", ylab="posterior") #the midpoints of cells #the number
+lines(xVals,posteriorDist_grid/sum,col="red",xlim =c(0.2,0.9),ylim=c(0,0.05))
+lines(xValues,post_Dist/sum1, col="green", xlim =c(0.2,0.9),ylim=c(0,0.05))
+legend("topleft", legend=c("Metropolis", "Grid","Analytical solution"),col=c("blue", "red","green"), lty=1:2, cex=0.8)
+```
+
+- The above three plots show that metropolis and grid methods plot closely matches, but these lines differ from the line produced by analytical solution.
+
+(1C)  Repeat the above calculation but for a case of 583 heads and 417 tails. 
+(You may need to adjust your model step parameters to try and get the grid and Metropolis graphs to match up).  How do the three posterior curves relate to each other now?  Why does this plot look different than the plot in (1B)?
+
+- Metropolis algorithm:
+
+```{r}
+
+#set the pi old to 0.5
+piOld <- 0.5
+
+#setting the iteration
+numIterations <- 500000
+
+#empty variable to save the values of posteriors
+posteriorDist1 <- vector()
+
+#for loop the iteration
+for( i in 1:numIterations )
+{
+	# our prior with 39 heads and 39 tails
+	# our new data with 583 heads and 417 tails
+  #we use dexp for prior
+	pOld <- dexp(x, rate =5) / 0.9932621 * dbinom(583,1000, piOld )
+	
+	piNew <- piOld + rnorm(1, 0, sd =0.01);#selecting the standard deviation
+	#Checking for the pi new values
+	if( piNew > 1) 
+		piNew = 1;
+	
+	if( piNew < 0 ) 
+		piNew =0;
+		
+	pNew <- dexp(x, rate =5) / 0.9932621 * dbinom(583,1000, piNew )
+	#calculating the ratio
+	ratio <- pNew / pOld
+	
+	if( ratio > 1 || ratio >= runif(1) ) 
+		piOld = piNew;
+	
+	#storing the pi old values in posterior
+	posteriorDist1[i] = piOld;	
+	
+}
+myHist <- hist(posteriorDist1,breaks=200, plot=FALSE)
+```
+
+
+- Grid approximation:
+
+```{r}
+
+#taking number of breaks
+numBreaks=900;
+posteriorDist_grid1 <- vector(length=numBreaks)# setting an empty variable to store posterior values
+xVals <- seq(0,1,1/numBreaks);
+
+#setting the sum to 0
+i <- 1;
+Sum <- 0;
+
+for( x in xVals )
+{
+	# our prior with 39 heads and 39 tails
+	# our new data with 583 heads and 417 tails
+	posteriorDist_grid1[i] <- dexp(x, rate =5) / 0.9932621 * dbinom(583,1000, x)
+	Sum = Sum + posteriorDist_grid1[i]; # sum the values of posteriors 
+	i <- i + 1;	
+}
+
+```
+
+- Exact analytical solution from a beta(40,40) prior:
+
+```{r}
+
+#taking number of breaks 
+numBreaks1=900;
+post_Dist1 <- vector(length=numBreaks) # setting an empty variable to store posterior values
+xValues <- seq(0,1,1/numBreaks1);
+
+i <- 1;
+Sum1 <- 0; #setting the sum to 0
+
+for( x in xValues )
+{
+	# our prior with 39 heads and 39 tails
+	# our new data with 583 heads and 417 tails
+  #we are using the dbeta for exact analytical solution for prior
+	post_Dist1[i] <- dbeta( x, 40,40 ) * dbinom(583,1000, x)
+	Sum1 = Sum1 + post_Dist1[i]; # sum the values of posteriors
+	i <- i + 1;	
+}
+  
+```
+
+
+- The observation of 583 heads and 417 tails end up with a graph with three plots superimposed:
+
+```{r}
+plot( myHist$mids, myHist$counts/length(posteriorDist1),xlim =c(0.5,0.7),ylim=c(0,0.05),col='blue',main= "Posterior Curves", xlab="prob(head)", ylab="posterior") #the midpoints of cells #the number
+lines(xVals,posteriorDist_grid1/Sum,col="red",xlim =c(0.5,0.7),ylim=c(0,0.05))
+lines(xValues,post_Dist1/Sum1, col="green", xlim =c(0.5,0.7),ylim=c(0,0.05))
+legend("topleft", legend=c("Metropolis", "Grid","Analytical solution"),col=c("blue", "red","green"), lty=1:2, cex=0.8)
+```
+
+
+- From the above plot we can say that all the three plots almost superimpose this is because as the heads and tails value increases from 14,10 (24) to 853, 417(1000) with more data, as per law of large numbers the dbinom approximate the lines of the graph. 
