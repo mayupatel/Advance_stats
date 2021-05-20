@@ -1,0 +1,187 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+Name: Mayuri Patel
+
+Email: mpate131@uncc.edu
+
+title: "Lab6_AdvStats"
+
+
+(1)	This question uses data from this paper:https://science.sciencemag.org/content/347/6217/78
+Variation in cancer risk among tissues can be explained by the number of stem cell divisions. Science  02 Jan 2015: Vol. 347, Issue 6217, pp. 78-81
+
+(1A): Download the data from here examining the relationship between the number of cell divisions and cancer risk: https://fodorclasses.github.io/classes/stats2020/cancerRisk.txt
+ On a log10-log10 scale graph Lifetime_cancer_risk (on the y-axis) vs. CumulativeCellDivisions (on the x-axis).  (This reproduces Fig. 1 from the paper).
+(You can read in the file with read.table("cancerRisk.txt", header=TRUE, sep="\t")
+
+```{r}
+
+#set the working directory to the file location
+setwd("C:/Users/mpate131/Desktop/AdvStats")
+
+#read the table of the dataset
+cancerData <- read.table("cancerRisk.txt", header=TRUE, sep="\t")
+head(cancerData) # view first few rows and column of the data
+```
+
+
+```{r}
+#Loading all the required libraries to run the code
+library(ggplot2)
+require(scales)
+library(ggrepel)
+
+#plotting the ggplot for Lifetime_cancer_risk (on the y-axis) vs. CumulativeCellDivisions (on the x-axis)
+# log10 scale is use to plot the graph for better visualization of the data points.  
+p2 <- ggplot(cancerData, aes(x = CumulativeCellDivisions, y = Lifetime_cancer_risk,label= Cancer_type)) + geom_point(color = "blue", size = 3) + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+labels = trans_format("log10", math_format(10^.x))) + 
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+  labels = trans_format("log10", math_format(10^.x))) +
+  theme_bw() # In this, points and color is added along with log10 scale, label
+p2 
+```
+
+```{r}
+#This part of the code is use to add the label to the data points
+#this takes in the color and point distance for proper alignment of the label 
+p2 + geom_label_repel(aes(label = Cancer_type),
+                  box.padding   = 0.35, 
+                  point.padding = 0.5,
+                  segment.color = 'grey50',
+                  max.overlaps = getOption("ggrepel.max.overlaps", default = 20)) +
+  theme_classic()
+```
+
+(1B):   Using the lm function, fit a linear model with Lifetime_cancer_risk as the Y variable and CumulativeCellDivisions as the x-data.  Add the regression line to the plot using the function abline(myLm)  (where myLm is the linear model you created).
+
+```{r}
+#I did log10 transform for the given dataset
+#using the linear model to generate the output for Lifetime_cancer_risk as the Y variable and CumulativeCellDivisions as the x-data. 
+myLinearModel = lm( log10(Lifetime_cancer_risk) ~ log10(CumulativeCellDivisions),data = cancerData)
+summary(myLinearModel) #This shows the summary
+
+#Plotting the datapoints of the x and y variable to which adding the regression line using abline
+plot(log10(Lifetime_cancer_risk) ~ log10(CumulativeCellDivisions),data = cancerData,col="blue") 
+abline(myLinearModel, col="green") # regression line 
+```
+
+
+(1C): What is the p-value for the null hypothesis that the slope of the regression between these two variables is zero?  What is the r-squared value of the model?
+
+- the p-value: 0.00000005124
+- R-squared value: 0.6463
+
+(1D): Are the assumptions of constant variance and normal distribution of the residues reasonable for this model?  Justify your answer.
+
+
+```{r}
+#plot of linear model gives us multiple plots as an output. The first two are residuals vs fitted and Normal Q-Q that will help in answering the question of constant variance and normal distribution.
+plot(myLinearModel)
+```
+
+- The residual plot helps in checking the constant variance. The distance from the regression line are normally distributed for fitted values with some being more or less near to the mean. For checking the normal distribution, normal Q-Q plot is generated along with residual plot. As we know that if the residuals are normally distributed then the plot of normal Q-Q is a straight line. So, it is justified that both the constant variance and normal distribution of the residues reasonable for this model.
+
+(2) Consider the case-control file for the colorectal adenomas data set that is here:http://afodor.github.io/classes/stats2015/caseControlData.txt
+A separate file gives obesity (BMI) data for these same subjects:http://afodor.github.io/classes/stats2015/BMI_Data.txt
+For each OTU in the spreadsheet, generate a p-value from linear regression comparing BMI to the relative abundance of each OTU. Graph out all the p-values.  Do they appear uniformly distributed? Does the microbial community appear to be influencing body weight in this cohort?  Are any of these associations significant at a 10% false discovery rate?
+Hints:To lookup the ids in the BMI table, you will need to some processing on the “sample” column in the caseControl file.  The following code will convert the a sampleID so that it will match the BMI file.
+	# remove case and control
+key <- sub("case", "", sampleID)
+	key <- sub("control", "", key)
+	# remove extraneous information from the suffix
+	key <- strsplit( key, "_")[[1]][1]
+	Also, to get the p-value out of the linear model try:
+	anova( myLm)$"Pr(>F)"[1]
+
+```{r}
+#set the working directory to the file location
+setwd("C:/Users/mpate131/Desktop/AdvStats")
+
+#Reading the two dataset in the R.
+#casecontrol data
+data <- read.table("caseControlData.txt", header=TRUE, sep="\t")
+head(data)
+#bmi data
+bmiData <- read.table("BMI_Data.txt", header=TRUE, sep="\t")
+head(bmiData)
+```
+
+```{r}
+#checking if the number of rows being same in both the dataset to match and merge them. 
+nrow(data)
+nrow(bmiData)
+
+```
+
+- There is difference in the number
+
+```{r}
+#library used for cbind
+library(tibble)
+
+#so, now to merge both the dataset, I have to filter the sample id to match them and also to remove the extra rows that don't match up.
+# remove case and control from the sample id of the casecontrol data
+sample <- data[,1]
+sampleID <- c()
+for (i in sample){ #For loop each sample id
+key <- sub("case", "", i)
+	key <- sub("control", "", key)
+	
+	# remove extraneous information from the suffix
+	key <- strsplit( key, "_")[[1]][1]
+	sampleID <- c(sampleID,key)
+}
+df <- cbind(sampleID,data) # binding the new filter sample id to casecontrol dataset
+df$sample <- NULL # remove the previous sample id from the data
+```
+
+- Merge the filtered data with the bmi data.
+
+```{r}
+#using merge function to join the two tables using sample id and study id.
+merged_data <- merge(df, bmiData, by.x="sampleID", by.y="studyid")
+head(merged_data)
+```
+
+```{r}
+#saving the otu and bmi columns into a separate variables.
+otu_data <- merged_data[2:421]
+bmi_data <- merged_data[422]
+
+#running the for loop for each otu vs bmi values using linear model.
+pVal <- c()
+for (otu in otu_data){
+  linearModel <- lm(unlist(bmi_data) ~ otu) # lm for bmi vs otu
+  summary(linearModel) # this generate the result
+  pVal <- c(pVal, anova(linearModel)$"Pr(>F)"[1]) # extract the p value from the result and save into a new variable.
+}
+#generating the histogram of the p values from linear regression. 
+hist(pVal, main = "p-values of each OTU vs bmi")
+```
+
+- Yes, Graph of all the p-values in histogram appears uniformly distributed. 
+
+- No, The microbial community won't appear to be influencing body weight in this cohort based on the uniform distribution of the p values in linear regression.That menas if the p values are uniformly distributed then there is no relationship between bmi and microbial community.
+
+- Are any of these associations significant at a 10% false discovery rate?
+
+```{r}
+#We are using p.adjust for FDR with method - BH
+FDR_BH <- p.adjust(pVal, method="BH") 
+BHpval <- sum(FDR_BH<=0.1) # 10% FDR
+BHpval
+```
+
+- There is no associations seen at 10% FDR. 
+
+
+
+
+
+
+
