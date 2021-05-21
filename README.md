@@ -20,7 +20,6 @@ d.	ANOVA.
 e.	Simple linear regression.
 f.	Multiple linear regression.
 g.	PCA clustering in genomics experiments.
-
 V.	Multiple hypothesis testing and the power problem in genomic studies.
 VI.	Applying inference to sequence counts – the Poisson and negative binomial distributions, over-dispersion, dseq (or other rna-seq analysis packages).
 VII. Mixed linear models.
