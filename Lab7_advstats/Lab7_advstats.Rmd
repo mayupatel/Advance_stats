@@ -1,0 +1,241 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+Name: Mayuri Patel
+
+Email: mpate131@uncc.edu
+
+title: "Lab7_AdvStats"
+
+
+(1)	We again return to our RNA seq dataset of E. Coli genes from mice.  
+The URL is here:
+http://afodor.github.io/classes/stats2015/longitdunalRNASeqData.zip
+As before, read and normalize the counts table ( “nc101_scaff_dataCounts.txt “ into R).  For example:
+setwd("C:\\somewhere")
+
+myT<-read.table("nc101_scaff_dataCounts.txt",sep="\t",header=TRUE,row.names=1)
+## remove rare genes
+myT <- myT[ apply( myT,1, median)> 5,]
+
+myTNorm <- myT
+for ( i in 1:ncol(myT))
+{
+	colSum = sum(myT[,i])
+	myTNorm[,i] =myTNorm[,i]/colSum
+}
+(The first 3 columns are “day 2”, the next 3 columns are “week 12” and the last 5 are “week 18”).  
+
+- Reading the file of datacount from the directory:
+
+```{r}
+#set the working directory to the file location
+setwd("C:/Users/mpate131/Desktop/AdvStats")
+
+#read the table
+myTable<-read.table("nc101_scaff_dataCounts.txt",sep="\t",header=TRUE,row.names=1)
+head(myTable) #viewing the data using head function
+```
+
+- Normalize the data: 
+
+```{r}
+# remove rare genes
+myTable <- myTable[ apply( myTable,1, median)> 5,]
+
+myTNorm <- myTable
+#For loop each column
+for ( i in 1:ncol(myTable))
+{
+	colSum = sum(myTable[,i]) # all rows and each column and summing all the column
+	myTNorm[,i] =myTNorm[,i]/colSum # normalizing the data and saving it in the empty variable myTNorm.
+
+}
+head(myTNorm) #viewing the data using head function
+```
+
+
+(A)	For each row in the spreadsheet, perform a one-way ANOVA with categories “day 2”, “week 12” and “week 18”.  Plot out the histogram of all p-values.  How many genes are significant at a BH FDR-corrected 0.05 threshold. 
+
+
+```{r}
+
+#replicating the categories of the sample here.
+categories_value <- c(rep("D2",3), rep("W12",3), rep("W20",5))
+
+#empty variable to save the p values
+anova_pVal <- c()
+
+#get each row of data and cast it to numeric
+for( i in 1:nrow(myTNorm)){
+	myData <- as.numeric(myTNorm[i,] ) 
+  
+	##  building linear models with myData as the y-variable and categories as x variable
+	mylinearmodel <- lm(myData ~ categories_value, x=TRUE)
+	anova_pVal <- c(anova_pVal, anova(mylinearmodel)$ "Pr(>F)"[1]) # extracting the p value from the linear model
+}
+# histogram of the p-values.
+hist(anova_pVal,xlab = "P-values", ylab ="Frequency",main ="Histogram of p-values for one-way ANOVA with categories") 
+
+#For p <0.05 BH FDR corrected:
+anova_BH <- p.adjust(anova_pVal, method="BH") # using method BH
+anova_BHpval <- sum(anova_BH<0.05) # summing all the p values <0.05
+print(paste("The number of genes significant at p-values <0.05 BH FDR corrected for one-way ANOVA with categories “day 2”, “week 12” and “week 18” is :", anova_BHpval))
+
+```
+
+
+(B)	Next make an ANOVA as a linear regression as a function of time (so 2 days, 86 days and 128 days).  Plot out the histogram of all p-values.  How many genes are significant at a BH FDR-corrected 0.05 threshold. 
+
+```{r}
+#replicating the time of the sample here.
+time_value <- c(rep(2,3), rep(86,3), rep(128,5))
+
+##empty variable to save the p values
+aovLR_pVal <- c()
+
+
+#get each row of data and cast it to numeric
+for( i in 1:nrow(myTNorm)){
+	myData <- as.numeric(myTNorm[i,] ) 
+  
+	##  building linear models with myData as the y-variable and time as x-variable
+	mylinearmodel1 <- lm(myData ~ time_value, x=TRUE)
+	aovLR_pVal <- c(aovLR_pVal, anova(mylinearmodel1)$ "Pr(>F)"[1]) # extracting the p value from the linear model
+}
+#histogram of the p-values.
+hist(aovLR_pVal,xlab = "P-values", ylab ="Frequency",main ="Histogram of p-values for ANOVA as linear regression")
+
+#For p <0.05 BH FDR corrected:
+aovLR_BH <- p.adjust(aovLR_pVal, method="BH") # using method BH
+aovLR_BHpval <- sum(aovLR_BH <0.05) # summing all the p values <0.05
+print(paste("The number of genes significant at p-values <0.05 BH FDR corrected for ANOVA as linear regression for time 2 days, 86 days and 128 days is :", aovLR_BHpval))
+```
+
+
+(C)	Finally, for each row in the spreadsheet perform an ANOVA comparing the three-parameter model from (A) and the two parameter model from (B).  Plot out the histogram of all p-values.  For how many genes is there a significant difference between these two models at a BH FDR-corrected threshold. 
+
+
+```{r}
+#empty variable to save the p values
+pvalue_compare <- c()
+
+#get each row of data and cast it to numeric
+for( i in 1:nrow(myTNorm)){
+	myData <- as.numeric(myTNorm[i,] ) 
+	
+  anov_3para <- lm(myData ~ categories_value,x=TRUE) # three-parameter model
+  
+  anov_2para <- lm(myData ~ time_value, x=TRUE) # two-parameter model
+  
+  fullmodel <- sum(residuals(anov_3para)^2) # calculating residual sum for 3 parameter model
+  reducemodel <- sum(residuals(anov_2para)^2) # calculating residual sum for 2 parameter model
+  
+  #calculating the F value using reduce and full model along with df (n=sample size=> 11-3/11-2)
+  F = ((reducemodel - fullmodel)/(1))/(fullmodel/8)
+  
+  #Now calculating the p value using pf function along with df1 and df2 
+  pval <- pf(F, 1,8,lower.tail = FALSE)
+  
+  pvalue_compare <- c(pvalue_compare, pval)# saving all p values into an empty variable.
+  
+}
+hist(pvalue_compare,xlab = "P-values", ylab ="Frequency",main ="Histogram of p-values for ANOVA comparing 3 and 2-parameter model")
+
+
+#For p <0.05 BH FDR corrected:
+pval_BH <- p.adjust(pvalue_compare, method="BH") 
+BHpval <- sum(pval_BH <0.05)
+print(paste("The number of genes significantly different between three-parameter and two-parameter model at p-values <0.05 BH FDR corrected is :", BHpval))
+```
+
+
+
+(D)	 Make three graphs showing the relative abundance of the most significant gene under each of the three ANOVA models.  For (A) and (C), the x-axis will the category (day 3, week 12 and week 18) and the y-axis will be the relative abundance.  Be sure to properly label and title all graphs and axes.  For (B) the x-axis will be time (in days) and the y-axis will be the relative abundance. For the graph of the top hit from (B), include the regression line for the plot from (B).
+
+
+```{r}
+#empty variables to save the p values from each of the three models.
+pValuesOneWayAnova <- vector()
+pValuesRegression <- vector()
+pValueModelDiff <- vector()
+
+#index of the rows
+index <- vector()
+
+categories_value <- c(rep("D2",3), rep("W12",3), rep("W20",5))
+
+for( i in 1:nrow(myTNorm)){
+  
+	index[i] <- i # indexing the rows
+	
+	#get each row of data and cast it to numeric
+	myData <- as.numeric(myTNorm[i,] ) 
+  
+	#---model 1----
+	#  building linear models with myData as the y-variable 
+	mylinearmodel <- lm(myData ~ categories_value, x=TRUE)
+	pValuesOneWayAnova <- c(pValuesOneWayAnova, anova(mylinearmodel)$ "Pr(>F)"[1])# extracting the p value from the linear model one-way anova
+	
+	#---model 2----
+	##  building linear models with myData as the y-variable 
+	mylinearmodel1 <- lm(myData ~ time_value, x=TRUE)
+	pValuesRegression <- c(pValuesRegression, anova(mylinearmodel1)$ "Pr(>F)"[1])# extracting the p value from the linear model anova as linear regression
+	
+  #---model 3----
+  fullmodel <- sum(residuals(mylinearmodel)^2)# calculating residual sum for 3 parameter model
+  
+  reducemodel <- sum(residuals(mylinearmodel1)^2)  # calculating residual sum for 2 parameter model
+  
+  #calculating the F value using reduce and full model along with df (n=sample size=> 11-3/11-2)
+  F = ((reducemodel - fullmodel)/(1))/(fullmodel/8)
+  
+  #Now calculating the p value using pf function along with df1 and df2  
+  pval <- pf(F, 1,8,lower.tail = FALSE)
+  pValueModelDiff <- c(pValueModelDiff, pval)# saving all p values into an empty variable.
+	
+}
+#built a dataframe of p values from three models with the index number
+myFrame <- data.frame( index, pValuesOneWayAnova,pValuesRegression,pValueModelDiff)
+head(myFrame)
+```
+
+- (A) boxplot for one way ANOVA:
+
+```{r}
+# Here, we are ordering the p values of one way ANOVA:
+myFrame <- myFrame[ order(myFrame$pValuesOneWayAnova),] 
+
+# in this boxplot, we are taking the sample values of a most significant gene based on the ordered index number on x axis and y being the abundance of the gene
+boxplot( as.numeric( myTNorm[ myFrame$index[1],]) ~ categories_value,xlab = "categories", ylab ="Relative abundance of NC101_03447 gene", main="Boxplot of ANOVA showing relative abundance of most significant gene",col = c("#00AFBB", "#E7B800", "#FC4E07") ) 
+```
+
+- (B) plot with regression line:
+
+```{r}
+# Here, we are ordering the p values of one way ANOVA as linear regression:
+myFrame <- myFrame[ order(myFrame$pValuesRegression), ] 
+
+#In this plot, we are taking the sample values of a most significant gene based on the ordered index number on x axis and y being the abundance of the gene
+plot(time_value,as.numeric( myTNorm[ myFrame$index[1],]),xlab = "time(in days)", ylab ="Relative abundance of NC101_03467 gene",main="Plot with regression line for most significant gene using ANOVA LR",col="red",pch = 15)
+# calculating the linear model to add the regression line
+mylm <- lm(as.numeric( myTNorm[ myFrame$index[1],])~time_value)
+abline(mylm, col="green") # This adds the regression line to the plot
+```
+
+- (C) Boxplot for model difference:
+
+```{r}
+# Here, we are ordering the p values of model difference:
+myFrame <- myFrame[ order(myFrame$pValueModelDiff), ]
+
+# In this boxplot, we are taking the sample values of a most significant gene based on the ordered index number on x axis and y being the abundance of the gene
+boxplot( as.numeric( myTNorm[ myFrame$index[1],]) ~ categories_value,xlab = "categories", ylab ="Relative abundance of NC101_03447 gene", main ="Boxplot of model difference for most significant gene",col = c("#01AFBB", "#E7B810", "#FC4E08")  ) 
+```
+
+(E)	 Overall, do you think the three parameter model in (A) or the two-parameter model in (B) is more appropriate for these data?  Justify your answer.
+- From my perspective, three parameter model is more appropriate for these data because in the full model/ three parameter we assume that each observation is a function of a specific group mean, so there are more parameters (one for each group's mean--hence "full").The full model appears to describe the trend in the data better than the reduced model. Whereas in the reduced model we assume that each observation is a function of the grand mean, so there are fewer parameters (hence, "reduced") to compare. A reduced model does not include all the possible terms to be used for these data.The 2 parameter model makes assumptions of linearity that are not appropriate for a substantial subset of the genes. 
