@@ -1,0 +1,234 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+Name: Mayuri Patel
+
+Email: mpate131@uncc.edu
+
+title: "project_AdvStats"
+
+- The project for advance statistics is performed on Gene Expression between UK and Sri Lankan Oral Cancer (oral squamous cell carcinomas).The aim of this study is to examine the most related genetic factors, carcinogenic related pathways, and molecular processes that might be responsible for the phenotypic heterogeneity in these groups. For data analysis, the dataset was downloaded from the NCBI which contains series_matrix file of samples and gene ID for cancer patients and normal patients. There are total of 8793 genes, but for the analysis, 842 genes are used that are filtered based on high and low gene expression levels and it is done using python code. There are 48 samples which are divided into two groups: UK (21 samples) and Sri Lankan (27 samples). To the cancer dataset file, all the variables/categories of country, gender, site, smoking are added for analysis.
+
+- Setting the Directory to access the files from:
+
+```{r}
+#Setting the working directory where the unzip folder of all the files are located
+setwd("C:/Users/mpate131/Desktop/AdvStats/project_advstats")
+
+#set the variable of the zip file which contains all the files for oral cancer dataset.
+zipFile<- "C:/Users/mpate131/Desktop/AdvStats/project_advstats/adv_statsproject.zip"
+
+outDir<-"C:/Users/mpate131/Desktop/AdvStats/project_advstats" # Define the folder where the zip file should be unzipped to 
+
+unzip(zipFile,exdir=outDir)  # unzip the file 
+
+```
+
+- Setting the directory to where all the files are unzipped to:
+
+```{r}
+#Setting the directory;
+setwd("C:/Users/mpate131/Desktop/AdvStats/project_advstats/adv_statsproject")
+
+#reading the cancer dataset table as CSV
+cancerData<-read.csv("OrgCancer_data.csv",header=TRUE,row.names="ID") #setting the ID as row names here
+head(cancerData) #viewing the data using head function
+```
+- Filtering the dataset as per the need in the analysis:
+
+```{r}
+#In this code, we are filtering the columns of variables 1 to 4
+filterVariables <- (cancerData[-c(1:4)])
+
+#Here, transpose the dataset to  make gene id as a row
+gene_row <- t(filterVariables)
+
+# collecting all the column names of genes and saved into a variable.
+genenames <- colnames(filterVariables)
+
+#Taking site column to run the anova test.
+site <- (cancerData$Site)
+```
+
+
+- Based on the paper, it is clearly stated that the given series matrix file is normalized. So, considering this in mind I am opting for doing parametric test on the given oral cancer dataset. 
+
+- Task 1: t-test is performed on this dataset for category Country column because there are only two countries UK and SL from where the samples for oral cancer were collected. So, t-test is performed to compare the means of two groups. Here, it will be UK and SL countries. In this test, we are finding the significant genes with p values less than 0.05. 
+
+```{r}
+#t-test is done between UK and SL countries.
+#Here, I am using apply function for t-test between UK and SL samples for each gene.The generated p value is saved from the test.
+UK_Sl_pval <- apply(filterVariables,2,function(x){t.test(x[1:21],x[22:48])$p.value})
+
+#summing the p value of every gene which is  <= 0.05 and <= 0.001 are statistically significant.
+print(paste("The number of genes significant at p-value <0.05 for t-test between UK and SL country is:", sum(UK_Sl_pval <= 0.05))) # statistically significant
+print(paste("The number of genes higly significant at p-value <0.001 for t-test between UK and SL country is:",sum(UK_Sl_pval <= 0.001))) # Highly statistical significant
+
+# using p adjust for calculating p values for method BH FDR corrected
+UK_Sl_pval_BH <- p.adjust(UK_Sl_pval, method="BH") 
+UK_Sl_BHpval <- sum(UK_Sl_pval_BH<0.05)
+print(paste("The number of genes significant at p-value <0.05 BH FDR corrected for t-test between UK and SL country is:", UK_Sl_BHpval))
+```
+
+- Now ordering the p values to get the most significant gene from the result of t-test:
+
+```{r}
+#building a dataframe of genes and p values
+t_pvalues <- data.frame(genenames,UK_Sl_pval)
+
+# order based on the p values and get the most significant gene form the t-test result
+t_pvalues <- t_pvalues[ order(t_pvalues$UK_Sl_pval),] 
+head(t_pvalues) # head function shows the top significant genes with its p value.
+```
+
+- Finally, selecting the top three most significant genes and making a box plot of it with X lab as country and Y lab as gene expression levels of gene
+
+```{r}
+# boxplot for most three significant genes are shown below for UK and SL patients with the gene expression levels.
+boxplot(X35436_at ~ Country, data = cancerData,
+        xlab = "country", ylab = "X35436_at",
+        frame = FALSE, col = c("#00AFBB", "#E7B800"))
+
+boxplot(X203845_at ~ Country, data = cancerData,
+        xlab = "country", ylab = "X203845_at",
+        frame = FALSE, col = c("#00AFBB", "#E7B800"))
+
+boxplot(X209034_at ~ Country, data = cancerData,
+        xlab = "country", ylab = "X209034_at",
+        frame = FALSE, col = c("#00AFBB", "#E7B800"))
+```
+
+- TASK 2:
+
+- ANOVA test: One-way ANOVA to compare the means of more than two groups which is seen in the Site/location of the tumor. So, I peformed ANOVA on each gene for every site of the cancer. 
+
+
+```{r}
+#empty variable to save the p values
+anova_pVal <- c()
+
+#get each row of data and cast it to numeric
+for( i in 1:nrow(gene_row)){
+	myData <- as.numeric(gene_row[i,] ) 
+  
+	##  building linear models with myData as the y-variable and site as x variable
+	mylinearmodel <- lm(myData ~ site, x=TRUE)
+	anova_pVal <- c(anova_pVal, anova(mylinearmodel)$ "Pr(>F)"[1])# extracting the p value from the linear model
+}
+# histogram of the p-values.
+hist(anova_pVal,xlab = "P-values", ylab ="Frequency",main ="Histogram of p-values for one-way ANOVA for Site")
+
+print(paste("The number of genes significant at p-value <0.05 for ANOVA between different Site is:", sum(anova_pVal <= 0.05)))
+
+#For p <0.05 BH FDR corrected:
+anova_BH <- p.adjust(anova_pVal, method="BH") # using method BH
+anova_BHpval <- sum(anova_BH<0.05) # summing all the p values <0.05
+print(paste("The number of genes significant at p-values <0.05 BH FDR corrected for one-way ANOVA for site is :", anova_BHpval))
+```
+
+- Now ordering the p values to get the most significant gene from the result of ANOVA:
+
+```{r}
+#building a dataframe of genes and p values
+anova_pvalues <- data.frame(genenames,anova_pVal)
+
+# order based on the p values and get the most significant gene from the ANOVA result
+anova_pvalues <- anova_pvalues[ order(anova_pvalues$anova_pVal),] 
+head(anova_pvalues)
+```
+
+-Installing all the packages required for running the violin plot using ggplot:
+
+```{r}
+install.packages("rlang")
+install.packages("ggplot2")
+install.packages("ggfortify")
+```
+
+- Violin plot for the most significant genes selected using ANOVA:
+
+```{r}
+#callin the library for ggplot
+library(ggplot2)
+
+# For gene - X201884_at
+#The top most significant gene from anova test is saved as a data frame and which is use to generate the violin plot using ggplot
+gene0 <- data.frame(cancerData$X201884_at,site)
+#Here, gene with site is taken to generate a plot and then stack the dots to represent the gene expression levels.
+p <- ggplot(gene0, aes(x=site, y=cancerData$X201884_at,color=site)) + 
+  geom_violin(trim=FALSE) + labs(title="Plot of site vs Gene expression",x="site", y = "X201884_at")
+p + geom_dotplot(binaxis='y', stackdir='center', dotsize=1)
+
+
+
+# For gene - X204753_s_at
+#data frame is made with site to generate the violin plot
+gene1 <- data.frame(cancerData$X204753_s_at,site)
+#Here, gene with site is taken to generate a plot and then stack the dots to represent the gene expression levels.
+p <- ggplot(gene1, aes(x=site, y=cancerData$X204753_s_at,color=site)) + 
+  geom_violin(trim=FALSE) + labs(title="Plot of site vs Gene expression",x="site", y = "X204753_s_at")
+p + geom_dotplot(binaxis='y', stackdir='center', dotsize=1)
+```
+
+- TASK 3:
+
+- PCA analysis:I am performing PCA to reduce the data into two dimension for clear visualization of the data points. The first two principal components are plotted for gender and site using their scores generated from PCA.
+
+```{r}
+#convert the gender and site into factor from character to run PCA for them.
+#selecting column gender and saving it into a variable
+gender <-as.factor(cancerData$Gender)
+#selecting column site and saving it into a variable
+site <- as.factor(cancerData$Site)
+```
+
+- PCA analysis to view the summary:
+
+```{r}
+#I am using the filtervariable dataset and transposed it to set the samples as columns and genes as rows.
+#the given data is converted into matrix to run the function princomp.
+PCA <- princomp(as.matrix(gene_row))
+summary(PCA) # the summary of PCA shows 48 components with the variance values.
+
+# from PCA result we take in the scores of genes 
+score <- PCA$scores[,1]
+#From the PCA result we take in the loading values of each sample.
+loading <- PCA$loadings[,1]
+```
+
+- From the above summary of the PCA, we can say that 81% of PC1 and 3.4% of PC2 which means a total of 84.4% of total variance is enough to explain the data variables. 
+
+- plotting the PC1 and PC2 scores and to which adding gender to separate the data points:
+
+```{r}
+# making the plot using scores of PC1 and PC2
+plot(PCA$scores[,1],PCA$scores[,2], col=gender, pch = c(17,19),xlab="Principal Component 1", ylab = "Principal Component 2",main="PCA plot for the Gender")
+#adding the legend for gender.
+legend("topright", # adding the name to top corner
+  legend = c("Male", "Female"), #adding names
+  col = gender, # adding the color
+  pch = c(17,19), # selecting the size
+  pt.cex = 1, 
+  cex = 1, 
+  text.col = "black")
+```
+
+- plotting the PC1 and PC2 scores and to which adding site to separate the data points:
+
+```{r}
+# making the plot using scores of PC1 and PC2
+plot(PCA$scores[,1],PCA$scores[,2], col=site,pch = c(17,19,18,16,12,15),xlab="Principal Component 1", ylab = "Principal Component 2",main="PCA plot for the site" )
+#adding the legend for site.
+legend("topleft", # adding the name to top corner
+  legend = c("Buccal","Alveolus", "Tongue", "Palate","FOM","Retromolar"), #adding names to data points
+  col = site, # adding the color
+  pch = c(17,19,18,16,12,15), # selecting the size
+  pt.cex = 1, 
+  cex = 0.5, 
+  text.col = "black")
+```
+
