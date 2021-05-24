@@ -14,7 +14,7 @@ II.	 Probability estimated by relative frequency of sequence counts.  Sequence e
 III.	Canonical and Bayesian approaches to using the binomial distribution for inference. 
 IV.	Canonical linear models and hypothesis testing.
 a.	The normal distribution and the central limit theorem.
-b.	The t-distribution.  
+b.	The t-distribution.
 c.	T-tests and their non-parametric equivalent.
 d.	ANOVA.
 e.	Simple linear regression.
